@@ -8,13 +8,20 @@ var app = express();
 
 require('dotenv').config({ path: 'variables.env' });
 
-var connection = mongoose.createConnection(process.env.MONGODB_URI || process.env.DATABASE);
+var connection = mongoose.connect(process.env.MONGODB_URI || process.env.DATABASE);
+
+var searchHistorySchema = mongoose.Schema({
+  term: String,
+  when: Date
+});
+
+var SearchHistory = mongoose.model('SearchHistory', searchHistorySchema);
 
 app.get('/', function(req, res) {
   res.sendFile(path.join(__dirname+'/index.html'));
 });
 
-app.get('/api/imagesearch/:searchstring', function(req, res) {
+app.get('/api/search/:searchstring', function(req, res) {
   axios.get('https://www.googleapis.com/customsearch/v1', {
       params: {
         key: process.env.GOOGLE_API_KEY,
@@ -38,14 +45,50 @@ app.get('/api/imagesearch/:searchstring', function(req, res) {
 
       res.setHeader('Content-Type', 'application/json');
       res.send(JSON.stringify(toReturn));
+
+      //Record search in database
+      var newSearch = new SearchHistory({
+        term: req.params.searchstring,
+        when: Date.now()
+      });
+
+      newSearch.save(function(err, newSearch) {
+        if (err) return console.log(error);
+      });
+
     })
-    .catch(function (error) {
-      console.log(error);
+    .catch(function (err) {
+      console.log(err);
       res.setHeader('Content-Type', 'application/json');
       res.send(JSON.stringify({
         error: 'There was an error processing the request.'
       }));
     });
+});
+
+app.get('/api/latest/', function(req, res) {
+  SearchHistory.find({}).sort('-when').limit(10).exec(function (err, searchHistories) {
+    if(err) {
+      console.log(err);
+      res.setHeader('Content-Type', 'application/json');
+      res.send(JSON.stringify({
+        error: 'There was an error processing the request.'
+      }));
+      return;
+    }
+
+    var toReturn = [];
+
+    searchHistories.map(function(searchHistory) {
+      toReturn.push({
+        term: searchHistory.term,
+        when: searchHistory.when
+      });
+    });
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify(toReturn));
+
+  });
 });
 
 
