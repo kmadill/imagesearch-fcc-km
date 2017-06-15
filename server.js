@@ -15,14 +15,14 @@ app.get('/', function(req, res) {
 });
 
 app.get('/api/imagesearch/:searchstring', function(req, res) {
-  console.log(req.params.searchstring);
-
   axios.get('https://www.googleapis.com/customsearch/v1', {
       params: {
         key: process.env.GOOGLE_API_KEY,
         cx: process.env.GOOGLE_CX,
         searchType: 'image',
-        q: req.params.searchstring
+        q: req.params.searchstring,
+        //Pagination. If user has offset = 2, want to start at 11, offset = 3, start at 21, etc. Default start at 1.
+        start: 10*(req.query.offset-1)+1 || 1
       }
     })
     .then(function (response) {
@@ -46,9 +46,6 @@ app.get('/api/imagesearch/:searchstring', function(req, res) {
         error: 'There was an error processing the request.'
       }));
     });
-
-
-
 });
 
 
